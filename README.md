@@ -18,7 +18,7 @@ Features supported for now are public-key based authentication
 and download resuming.
 
 Debian packages will be provided from my "testing" ppa.
-(ppa:pkt/testing).
+(ppa:pktoss/testing).
 
 
 TESTING

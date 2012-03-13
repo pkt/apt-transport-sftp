@@ -1,0 +1,23 @@
+Possible improvements to apt-transport-sftp
+(patches or donations to make these happen are most wellcome)
+
+
+* Currently we use libssh2 in blocking mode for simplicity.
+  Using non-blocking mode should achieve a significant speedup
+  especially with newer versions of libssh2 due to the way
+  SFTP works. Tuning the buffer size or switching to a dynamic
+  buffer should also improve speed.
+
+* Support password-based auth (using netrc?)
+
+* Support ssh-agent based auth
+
+* Support the "Pipeline" feature that some other apt methods
+  support (e.g., the HTTP and HTTPS methods)
+
+* More tests including performance tests (e.g., to measure the
+  performance impact of non-blocking mode). 
+
+* Ask (once more) for libssh2 to become part of ubuntu "main"?
+
+* Rework the code to submit to upstream apt
