@@ -1,0 +1,84 @@
+#!/bin/bash
+set -e
+set -u
+
+# -------------------------------------------------------------------- #
+# 1. Pre-test setup.                                                   #
+# -------------------------------------------------------------------- #
+
+pid=0
+
+mktestfile()
+{
+    name=${1}
+    sz=${2}
+    dd if=/dev/zero of=${name} bs=1M count=${sz}
+    md5sum ${name} > ${name}.md5
+}
+
+setup()
+{
+    mkdir data
+    cd data &>/dev/null
+    mktestfile testfile1 2 &>/dev/null
+    mktestfile testfile2 5 &>/dev/null
+    cd - &>/dev/null
+}
+
+teardown()
+{
+    if [[ -f data/testfile1 ]]; then
+        rm -rf data
+    fi
+
+    for i in testfile1 testfile2; do
+        if [[ -f "${i}" ]]; then
+            rm -f "${i}"
+        fi
+    done
+
+    kill ${pid} &>/dev/null
+}
+trap teardown EXIT
+
+
+test_download()
+{
+    ./mocksftp &>/dev/null &
+    pid=$!
+    sleep 1
+
+    ./download testfile1 &>/dev/null
+    if md5sum -c data/testfile1.md5 &>/dev/null; then
+        echo "Test 1 ............................ PASS"
+    else
+        echo "Test 1 ............................ FAIL"
+        exit 1
+    fi
+
+    kill ${pid} &>/dev/null
+}
+
+test_resume()
+{
+    ./mocksftp &>/dev/null &
+    pid=$!
+    sleep 1
+
+    ./download testfile2 &>/dev/null
+    ./download testfile2 &>/dev/null
+    if md5sum -c data/testfile2.md5 &>/dev/null; then
+        echo "Test 2 ............................ PASS"
+    else
+        echo "Test 2 ............................ FAIL"
+        exit 1
+    fi
+
+    kill ${pid}
+}
+
+setup
+test_download
+test_resume
+
+# vim: set expandtab tabstop=4: 

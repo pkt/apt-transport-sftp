@@ -1,0 +1,98 @@
+.TH APT-TRANSPORT-SFTP 1 "2012-03-10"
+.SH NAME
+apt\-transport\-sftp \- an APT transport for the SFTP protocol
+
+.SH DESCRIPTION
+The
+.B apt\-transport\-sftp
+package contains the APT sftp transport
+method  which gets installed under \fI/usr/lib/apt/methods\fP. It makes it
+possible to use
+
+  \fBdeb sftp://\fP\fIhost:port\fP\fB/\fP\fIfoo\fP\fB \fP\fIdistro\fP\fB \fP\fIcomponents\fP
+
+type lines in your sources.list(5) file for apt, or
+
+  \fBMethod: sftp://\fP\fImyhost:port\fP\fB/\fP\fIfoo\fP
+
+type rules in \fBreprepro(1)\fP's \fBconf/updates\fP.
+
+You don't need to run the method yourself, it will be started 
+automatically by APT/reprepro. Compared to the ssh method, sftp
+allows for more security / easier administration on the server
+end (e.g., \fBchroot(3)\fP, no requirement for shell access, etc).
+
+This manual page documents briefly the options available to the
+sftp method. 
+
+.SH CONFIGURATION
+The options below are used by APT when calling the sftp method.
+For a description of how APT reads these options, see the man
+page for \fBapt.conf(5)\fP. These options can be set/changed either
+directly in \fBapt.conf(5)\fP or in a file under \fI/etc/apt/apt.conf.d/\fP.
+
+.TP
+.BR Acquire::sftp::Timeout[::name]
+Set the timeout for remote connections
+
+.TP
+.BR Acquire::sftp::Username[::name]
+Set the username to be used, if there is no user@ in the URI.
+
+.TP
+.BR Acquire::sftp::KnownHosts[::name]
+Where to look for the public host key of the remote server.
+
+Default is /etc/ssh/ssh_known_hosts.
+
+.TP
+.BR Acquire::sftp::PubkeyFile[::name]
+Path of the ssh public key to use for authentication.
+
+.TP
+.BR Acquire::sftp::PrivkeyFile[::name]
+Path of the ssh private key to use for authentication.
+
+.TP
+.BR Debug::Acquire::sftp
+Whether to output debugging messages while the method is
+downloading files (defaults to false).
+
+.SH EXAMPLE
+Assume you want to add a private authenticated repository using
+the sftp method at host \fBmyhost:2222\fP, path \fI/srv/debian\fP. The server
+uses a shared account for apt users called 'repo' and uses key
+based authentication. You create a keypair \fI/var/srepo/sftp{.pub,}\fP
+particularly for this purpose. The configuration will be as
+follows (we assume you have already imported the gpg key of the
+repository as well, to verify the authenticity of the packages):
+
+In \fI/etc/ssh/ssh_known_hosts\fP you put the server's public key
+so that any (admin) user can use the repo.
+
+.TP
+In \fI/etc/apt/sources.list.d/repo.list\fP:
+  \fBdeb\fP \fBsftp:\fP//\fBrepo@myhost:2222\fP/\fBsrv\fP/\fBdebian\fP \fBunstable\fP \fBmain\fP
+
+.TP
+In \fI/etc/apt/apt.conf.d/30sftp\fP:
+  \fBAcquire::sftp::Identity::repo@myhost:2222=/var/srepo/sftp\fP
+
+.TP
+Or if you were to use \fBreprepro(1)\fP:
+Config: \fBAcquire::sftp::Identity::repo@myhost:2222=/var/srepo/sftp\fP
+
+.SH DEBUGGING
+With the config option \fBDebug::Acquire::sftp\fP you get additional
+debugging output. Note that when using through apt, you might
+not see it unless you also set \fBDebug::Acquire::Worker\fP to true.
+
+.SH "SEE ALSO"
+\fBapt.conf(5)\fP
+
+.SH AUTHOR
+This manual page is Copyright \(co 2012 Pantelis Koukousoulas <pktoss@gmail.com>.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU General Public License, Version 2 or, at your
+option, any later version published by the Free Software Foundation.

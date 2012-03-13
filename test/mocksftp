@@ -1,0 +1,143 @@
+#!/usr/bin/python
+
+import os,sys
+import time
+import socket
+import base64
+from paramiko import ServerInterface, SFTPServerInterface, SFTPServer, SFTPAttributes, \
+     SFTPHandle, Transport, common, SFTP_OK, AUTH_FAILED, AUTH_SUCCESSFUL, OPEN_SUCCEEDED, \
+     SFTP_PERMISSION_DENIED, RSAKey
+
+BACKLOG = 10
+PORT    = 4711
+USER    = "mirror"
+HOST    = "localhost"
+HOSTKEY = os.getcwd() + "/etc/host"
+AUTHKEY = os.getcwd() + "/etc/user.pub"
+DATADIR = os.getcwd() + "/data"
+
+class FaultyFile (object):
+    def __init__(self, f):
+        print "Initializing spyfile"
+        self._f = f
+        self._sz = 0
+
+    def seek(self, offset, whence=os.SEEK_SET):
+        print "seek() requested!! offset=(%s)" % (offset,)
+        return self._f.seek(offset, whence)
+
+    def read(self, size):
+        print "read() requested!! size=(%s)" % (size,)
+        self._sz = self._sz + size
+        if (self._sz > 5000000):
+            return ""
+        else:
+            return self._f.read(size)
+
+    def __getattr__(self,name):
+        print "getattr called name=(%s)" % (name,)
+        return getattr(self._f, name)
+
+class MockServer (ServerInterface):
+
+    # This string is essentially the content of etc/user.pub
+    data = 'AAAAB3NzaC1yc2EAAAABIwAAAQEAxIgBuZS39D4bFnWminE7svGQLdVKx1aWKn' + \
+           'EYEa+XtNU4DKZ/pxUHg0zbEBya+IkX1yqQYWALoiOwI8XhdemLp8g03BX7o+DL' + \
+           'SWisfiHpCDVGAuNqRDF7qnFyL/ZBH6e0XKMtsoB51TDuBc4Rxh6p1V2QL/fg8B' + \
+           'oHcCrnKkoqN8PSoKUX2lPKJ3JIF/P8cDLbKYCvbSTFOdf56eqg0GJe7jFtSwwe' + \
+           'E9yz3IWZ3kSS1E/9E6sXaNCu/hUt1bvQthICQyBNoTtQP/igEUJ7n0GMetsnq9' + \
+           'wiUSomLzWqIWNqmvOv62aCXRi5sYgpSAR4Zvnm3Cx/Wl0BEPz2rrFkG+G0SQ=='
+
+    # The real key is derived by base64 decoding the above string
+    authorized_key = RSAKey(data=base64.decodestring(data))
+
+    def get_allowed_auths(self, username):
+        return "publickey"
+
+    def check_auth_publickey(self, username, key):
+        if username <> 'mirror' or key <> self.authorized_key:
+                return AUTH_FAILED
+        else:
+                return AUTH_SUCCESSFUL
+
+    def check_channel_request(self, kind, chanid):
+        return OPEN_SUCCEEDED
+
+class MockSFTPHandle (SFTPHandle):
+    def stat(self):
+        try:
+            return SFTPAttributes.from_stat(os.fstat(self.readfile.fileno()))
+        except OSError, e:
+            return SFTPServer.convert_errno(e.errno)
+
+class MockSFTPServer (SFTPServerInterface):
+    def _realpath(self, path):
+        return DATADIR + self.canonicalize(path)
+
+    def stat(self, path):
+        path = self._realpath(path)
+        try:
+            return SFTPAttributes.from_stat(os.stat(path))
+        except OSError, e:
+            return SFTPServer.convert_errno(e.errno)
+
+    def lstat(self, path):
+        path = self._realpath(path)
+        try:
+            return SFTPAttributes.from_stat(os.lstat(path))
+        except OSError, e:
+            return SFTPServer.convert_errno(e.errno)
+
+    def open(self, path, flags, attr):
+        path = self._realpath(path)
+        if (flags & os.O_WRONLY) or (flags & os.O_RDWR):
+            return SFTP_PERMISSION_DENIED
+        try:
+            binary_flag = getattr(os, 'O_BINARY',  0)
+            flags |= binary_flag
+            mode = getattr(attr, 'st_mode', None)
+            if mode is not None:
+                fd = os.open(path, flags, mode)
+            else:
+                # os.open() defaults to 0777 which is
+                # an odd default mode for files
+                fd = os.open(path, flags, 0666)
+        except OSError, e:
+            return SFTPServer.convert_errno(e.errno)
+        try:
+            f = os.fdopen(fd, "rb")
+        except OSError, e:
+            return SFTPServer.convert_errno(e.errno)
+        fobj = MockSFTPHandle(flags)
+        fobj.filename = path
+        fobj.readfile = FaultyFile(f)
+        return fobj
+
+def start_server():
+    paramiko_level = getattr(common, 'DEBUG')
+    common.logging.basicConfig(level=paramiko_level)
+
+    srvsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srvsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
+    srvsock.bind((HOST,PORT))
+    srvsock.listen(BACKLOG)
+
+    while True:
+        conn, addr = srvsock.accept()
+
+        host_key = RSAKey.from_private_key_file(HOSTKEY)
+        transport = Transport(conn)
+        transport.add_server_key(host_key)
+        transport.set_subsystem_handler('sftp', SFTPServer, MockSFTPServer)
+
+        server = MockServer()
+        transport.start_server(server=server)
+
+        channel = transport.accept()
+        while transport.is_active():
+            time.sleep(1)
+
+if __name__ == "__main__":
+    start_server()
+
+# vim:set ts=4 sw=4 sts=4 expandtab:

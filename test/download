@@ -1,0 +1,47 @@
+#!/usr/bin/python
+
+import os
+import sys
+import time
+import subprocess
+
+dfile = sys.argv[1]
+lfile = os.getcwd() + "/" + dfile
+
+known_hosts = os.getcwd() + "/etc/known_hosts"
+privkey     = os.getcwd() + "/etc/user"
+pubkey      = os.getcwd() + "/etc/user.pub"
+
+str = """601 Configuration
+Config-Item: Debug::Acquire::sftp=true
+Config-Item: Acquire::sftp::timeout=10
+Config-Item: Acquire::sftp::Username=mirror
+Config-Item: Acquire::sftp::KnownHosts=%s
+Config-Item: Acquire::sftp::PubkeyFile=%s
+Config-Item: Acquire::sftp::PrivkeyFile=%s
+
+600 URI Acquire
+URI: sftp://localhost:4711/%s
+Filename: %s
+
+""" % (known_hosts, pubkey, privkey, dfile, lfile)
+
+proc = subprocess.Popen('../sftp',shell=False,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+
+output = proc.stdout.readline()
+#print '< ' + output
+output = proc.stdout.readline()
+#print '< ' + output
+output = proc.stdout.readline()
+#print '< ' + output
+
+#print '> '
+#print str
+proc.stdin.write(str)
+
+#while True:
+#	output = proc.stdout.readline()
+#	print '< ' + output
+
+time.sleep(2)
+sys.exit(0)

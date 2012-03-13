@@ -1,0 +1,27 @@
+Source: apt-transport-sftp
+Section: admin
+Priority: optional
+Maintainer: Pantelis Koukousoulas <pktoss@gmail.com>
+Homepage: https://github.com/pkt/apt-transport-sftp
+Standards-Version: 3.9.3
+Build-Depends: debhelper (>= 8.0.0),
+ libapt-pkg-dev (>= 0.8.16~exp5),
+ libssh2-1-dev (>= 1.2.8 )
+#Vcs-Git: https://github.com/pkt/apt-transport-sftp
+#Vcs-Browser: https://github.com/pkt/apt-transport-sftp
+
+Package: apt-transport-sftp
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: SFTP transport method for APT
+ This package provides an sftp transport method for APT. In contrast
+ to the ssh method, sftp doesn't require shell access to the server,
+ allows for easier chroot'ing and in general provides administrative
+ advantages.
+ .
+ The URIs supported are of the form "sftp://host:port/foo distro main"
+ Since sftp typically requires authentication you will need to set the
+ access details for this method (e.g., location of public/private keys
+ as appropriate) in apt.conf. See apt.conf-sftp(5) and the example in
+ /usr/share/doc/apt-transport-sftp for how to do this.
+

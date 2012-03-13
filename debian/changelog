@@ -1,0 +1,5 @@
+apt-transport-sftp (0.1) precise; urgency=low
+
+  * Initial Release.
+
+ -- Pantelis Koukousoulas <pktoss@gmail.com>  Thu, 08 Mar 2012 13:44:08 +0200
