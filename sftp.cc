@@ -17,6 +17,7 @@
 #include <apt-pkg/fileutl.h>
 #include <apt-pkg/strutl.h>
 #include <apt-pkg/error.h>
+#include <apt-pkg/hashes.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -119,7 +120,7 @@ bool SftpMethod::Fetch(FetchItem *Itm)
           URIDone(Res);
           return true;
       }
- 
+
       // Resume?
       if (FailTime == Buf.st_mtime && Size > (unsigned long long)Buf.st_size)
          Res.ResumePoint = Buf.st_size;
@@ -175,6 +176,11 @@ bool SftpMethod::Fetch(FetchItem *Itm)
     utime(Queue->DestFile.c_str(),&UBuf);
     FailFd = -1;
 
+    // take hashes
+    Hashes Hash;
+    FileFd Fd(Res.Filename, FileFd::ReadOnly);
+    Hash.AddFD(Fd);
+    Res.TakeHashes(Hash);
     URIDone(Res);
 
     return true;
@@ -273,7 +279,7 @@ bool SftpConn::Attrs(const char *Path,unsigned long long &Size,time_t &Time)
     Time = time(&Time);
 
     if (rc) return false;
-    
+
     if (attrs.flags & LIBSSH2_SFTP_ATTR_SIZE)
         Size = attrs.filesize;
 
@@ -295,7 +301,7 @@ bool SftpConn::Get(const char *Path,FileFd &To,unsigned long long Resume,
     sftp_handle = libssh2_sftp_open(sftp_session, Path, LIBSSH2_FXF_READ, 0);
     if (!sftp_handle) {
         Missing=true;
-        goto error; 
+        goto error;
     }
 
     if (To.Truncate(Resume) == false)
@@ -442,7 +448,7 @@ bool SftpConn::SetupSFTP()
 void SftpConn::Configure(pkgAcqMethod *Owner, const std::string &Host, int Port)
 {
     char *name = NULL;
-    
+
     char port[10];
     snprintf(port, sizeof(port), "%d", Port);
     std::string remotehost = Host + ":" + port;
@@ -500,7 +506,7 @@ int main()
 
     int err = libssh2_init(0);
     if (err) return 126;
- 
+
     SftpMethod Mth;
 
     bool res = Mth.Run();
